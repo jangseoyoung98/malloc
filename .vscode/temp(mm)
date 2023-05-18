@@ -28,15 +28,13 @@ void mm_free(void *bp);
 static void* coalesce(void* bp);
 void *mm_malloc(size_t size);
 void *mm_realloc(void *ptr, size_t size);
-static void *find_fit(size_t asize);
+static void* find_fit(size_t asize);
 static void place(void* bp, size_t asize);
-static void test_dont_show_ptr();
 
 
 /* 1. mm_init - 최초 가용 블록으로 힙 생성하기 (힙 초기화) */
 int mm_init(void)
 {
-    //printf("mm_init\n");
     // 초기화 된 힙을 생성한다.
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) // 메모리 시스템에서 4워드를 가져와서 빈 가용 리스트를 만든다. (+ 초기화)
         return -1;
@@ -47,7 +45,7 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(0, 1));        // Epilogue header
     heap_listp += (2*WSIZE);
     // ※ heap_listp는 항상 prologue block을 가리킨다!
-    //test_dont_show_ptr();
+
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)       // 힙을 CHUNKSIZE 바이트로 확장하고, 초기 가용 블록을 생성한다.
         return -1;
     return 0;
@@ -56,7 +54,6 @@ int mm_init(void)
 /* 2. extend_heap - 새 가용 블록으로 힙 확장하기 */
 static void * extend_heap(size_t words)
 {
-    //printf("mm_extend_heap\n");
     char* bp;
     size_t size;
     
@@ -70,37 +67,33 @@ static void * extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0));   // 앞선 헤더는 새 가용 블록의 헤더가 되고
     PUT(FTRP(bp), PACK(size, 0));   // 풋터가 되고
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));   // 이 블록의 마지막 워드는 새 에필로그 블록 헤더가 된다.
-    //test_dont_show_ptr();
+
     return coalesce(bp);    // 이전 힙이 가용 블록으로 끝났다면, 두 개의 가용 블록을 통합하기 위해 coalesce 함수를 호출하고 통합된 블록의 블록 포인터를 리턴한다.
 }
 
 /* 3. mm_free - (이전에 할당한) 블록 반환 */
 void mm_free(void *bp)
 {
-    //printf("mm_free\n");
-
     // 요청한 블록을 반환한다. -> 해당 블록의 사이즈를 알아내어, 헤더와 풋터를 변경한다.
     size_t size = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
     
     // 만약 앞뒤 블록이 가용상태라면 연결한다.
-    //test_dont_show_ptr();
     coalesce(bp);
 }
 
-// static char* next_find = NULL;
+static char* next_find = NULL;
 /* 4. coalesce - 가용 블록 연결 (가용블록들을 경계 태그 연결 기술을 사용해서 통합한다.) */
 static void* coalesce(void* bp)
 {   
-    //printf("mm_coalesce\n");
     // bp : free 상태 블록의 payload를 가리키고 있는 포인터
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {         /* CASE 1 : 앞/뒤 모두 allocated일 때*/
-        // next_find = PREV_BLKP(bp);
+        next_find = PREV_BLKP(bp);
         return bp;
     }
     else if (prev_alloc && !next_alloc){    /* CASE 2 : 앞 allocated이고, 뒤는 free일 때*/
@@ -122,15 +115,13 @@ static void* coalesce(void* bp)
         bp = PREV_BLKP(bp);
     }
 
-    // next_find = PREV_BLKP(bp);
-    //test_dont_show_ptr();
+    next_find = PREV_BLKP(bp);
     return bp; 
 }
 
 /* 5. mm_malloc - 증가된 힙을 동적할당 받는 것 => find_fit! */
 void *mm_malloc(size_t size)
 {
-    //printf("mm_malloc\n");
     size_t asize;       // 정렬 조건과 헤더/푸터 용량을 고려하여 조정된 블록 사이즈
     size_t extendsize;  // 메모리를 할당할 자리가 없을 때 (no fit) 힙을 연장할 크기
     char *bp;
@@ -148,7 +139,6 @@ void *mm_malloc(size_t size)
     // 만일 맞는 블록을 찾으면 할당기는 요청한 블록을 배치하고, (옵션으로 초과부분을 분할하고), 새롭게 할당한 블록을 리턴한다.
     if ((bp = find_fit(asize)) != NULL){
         place(bp, asize);
-        // //test_dont_show_ptr();
         return bp;
     }
 
@@ -158,7 +148,6 @@ void *mm_malloc(size_t size)
     if((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
-    //test_dont_show_ptr();
     return bp;
 
 }
@@ -166,7 +155,6 @@ void *mm_malloc(size_t size)
 /* 6. mm_realloc - Implemented simply in terms of mm_malloc and mm_free */
 void *mm_realloc(void *ptr, size_t size)
 {
-    //printf("mm_realloc\n");
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
@@ -180,7 +168,6 @@ void *mm_realloc(void *ptr, size_t size)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
-    //test_dont_show_ptr();
     return newptr;
 }
 
@@ -201,64 +188,40 @@ void *mm_realloc(void *ptr, size_t size)
 // }   
 
 
-// /* next fit */
-// static void* find_fit(size_t asize)
-// {
-//     // 이전 탐색 위치를 보관할 변수 next를 만든다.
-//     // coalesce 함수가 실행되면, 그 안에서 연결 이후 next의 값을 갱신한다. (case1 -> 안에서 next=bp / case2,3,4 -> return bp 이전, next = bp)
-//     // 1) for 초기식만 bp = next로 하고 2) return bp 하기 전, next = bp 한다.
-//     // 나머지는 동일하게 동작한다.
+/* next fit */
+static void* find_fit(size_t asize)
+{
+    // 이전 탐색 위치를 보관할 변수 next를 만든다.
+    // coalesce 함수가 실행되면, 그 안에서 연결 이후 next의 값을 갱신한다. (case1 -> 안에서 next=bp / case2,3,4 -> return bp 이전, next = bp)
+    // 1) for 초기식만 bp = next로 하고 2) return bp 하기 전, next = bp 한다.
+    // 나머지는 동일하게 동작한다.
 
-//     void *bp = next_find;
-//     // 1. 이전 탐색 지점부터 ~ 끝
-//     for(bp = NEXT_BLKP(bp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-//         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(bp))){
-//             next_find = bp;
-//             return bp;
-//         }
-//     }
-    
-//     // 2. 1.에서 못 찾은 경우, 앞 부분부터 ~ (이전 탐색 지점)
-//     bp = heap_listp;
-//     while(bp < next_find){
-//         bp = NEXT_BLKP(bp);
-//         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(bp))){
-//             next_find = bp;
-//             return bp;
-//         }
-//     }
-
-//     // 3. 1.과 2. 모두 없으면 NULL을 리턴한다.
-//     return NULL;
-// }
-
-/* best-fit */
-static void *find_fit(size_t asize) {
-    //printf("mm_find_fit\n");
-    void *bp;    
-    /* Next-fit search */    
-    size_t min = SIZE_T_SIZE;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
-            size_t block_size = GET_SIZE(HDRP(bp));
-            if (min > block_size){
-                min = block_size;
-                best_bp = bp;
-            }                
+    void *bp = next_find;
+    // 1. 이전 탐색 지점부터 ~ 끝
+    for(bp = NEXT_BLKP(bp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(bp))){
+            next_find = bp;
+            return bp;
         }
-    }    
-    if (best_bp)
-        return best_bp;
+    }
     
-    //test_dont_show_ptr();
-    return NULL; /* No fit */
-}
+    // 2. 1.에서 못 찾은 경우, 앞 부분부터 ~ (이전 탐색 지점)
+    bp = heap_listp;
+    while(bp < next_find){
+        bp = NEXT_BLKP(bp);
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(bp))){
+            next_find = bp;
+            return bp;
+        }
+    }
 
+    // 3. 1.과 2. 모두 없으면 NULL을 리턴한다.
+    return NULL;
+}
 
 /* 8. place */
 static void place(void* bp, size_t asize) 
-{   
-    //printf("mm_place\n");
+{
     size_t csize = GET_SIZE(HDRP(bp));
 
     // ※ 최소 블록 크기는 16바이트이다.
@@ -273,17 +236,13 @@ static void place(void* bp, size_t asize)
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
     }
-    //test_dont_show_ptr();
+
 }
 
-// 디버깅 함수!
-static void test_dont_show_ptr() {
-    void *bp = heap_listp;
-    for(; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-        PUT(HDRP(bp), GET(HDRP(bp)));
-        PUT(FTRP(bp), GET(FTRP(bp)));
-    }
-}
+
+
+
+
 
 
 

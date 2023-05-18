@@ -58,7 +58,7 @@
 #define ALIGNMENT 8  
 
 /* 
- * Maximum heap size in bytes 
+ * Maximum heap size in bytes → 힙의 최대 크기
  */
 #define MAX_HEAP (20*(1<<20))  /* 20 MB */
 
