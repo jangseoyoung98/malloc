@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "mm.h"
 #include "memlib.h"
@@ -233,26 +234,32 @@ void *mm_realloc(void *ptr, size_t size)
 // }
 
 /* best-fit */
+/**
+ * 1. min_size에 SIZE_MAX값을 할당하여 크기 비교할 때 무조건 변할 수 밖에 없게 한다.
+ * 2. 힙을 전체 탐색하여 요구하는 크기가 가능한 블럭중에서 가장 작은 블럭(best_bp)을 찾는다.
+ * 3. 만약 best_bp가 할당되지 않았거나, min_size가 변경되지 않았을 경우 NULL을 반환한다.
+ * 45 (util) + 9 (thru) = 54
+*/
 static void *find_fit(size_t asize) {
-    //printf("mm_find_fit\n");
     void *bp;    
-    /* Next-fit search */    
-    size_t min = SIZE_T_SIZE;
+    /* best-fit search */
+    size_t min_size = SIZE_MAX; // SIZE_MAX 해당 비트 (32 or 64)에서 가장 큰 정수형 크기
+    void *best_bp;
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
             size_t block_size = GET_SIZE(HDRP(bp));
-            if (min > block_size){
-                min = block_size;
+            if (min_size > block_size) {
+                min_size = block_size;
                 best_bp = bp;
-            }                
+            }
         }
-    }    
-    if (best_bp)
+    }
+    if (best_bp && min_size != SIZE_MAX)
         return best_bp;
-    
-    //test_dont_show_ptr();
+        
     return NULL; /* No fit */
 }
+
 
 
 /* 8. place */
@@ -284,8 +291,6 @@ static void test_dont_show_ptr() {
         PUT(FTRP(bp), GET(FTRP(bp)));
     }
 }
-
-
 
 
 
